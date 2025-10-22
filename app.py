@@ -6,13 +6,14 @@ import streamlit as st
 import time
 from typing import Dict, List
 import os
+from datetime import datetime
 from llm_client import LLMFarmClient
 from prompt_generator import PromptGenerator
 from logger import get_logger
 
 # Configure page
 st.set_page_config(
-    page_title="GenAI Prompt Generator",
+    page_title="Prompt Generator",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -49,7 +50,6 @@ def display_info_section():
         - Explain a complex concept in simple terms
         - Design a marketing strategy for a new product
         
-        *Powered by Corporate LLM Farm*
         """)
 
 
@@ -94,6 +94,9 @@ def main():
     if generate_button and task_description.strip():
         start_time = time.time()
         
+        # Simple console logging
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] USER QUERY: {task_description}")
+        
         try:
             with st.spinner("Generating your custom prompt template..."):
                 # Add debug info in development
@@ -105,6 +108,9 @@ def main():
             
             generation_time = time.time() - start_time
             
+            # Log generation result
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] GENERATION SUCCESS: {generation_time:.2f}s, Variables: {len(result.get('variables', []))}")
+            
             # Display results
             st.success(f"✅ Prompt template generated successfully! ({generation_time:.2f}s)")
             
@@ -113,6 +119,10 @@ def main():
             
         except Exception as e:
             generation_time = time.time() - start_time
+            
+            # Log generation error
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] GENERATION ERROR: {str(e)} ({generation_time:.2f}s)")
+            
             st.error(f"❌ Error generating prompt template: {str(e)}")
             
             # Show additional debug info if available
@@ -191,6 +201,9 @@ If this error persists:
             # Test button
             if st.button("🎯 Test Prompt", key="test_prompt"):
                 if all(value.strip() for value in test_values.values()):
+                    # Log test attempt
+                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] PROMPT TEST: Variables={len(test_values)}")
+                    
                     try:
                         with st.spinner("Testing prompt template..."):
                             test_result = prompt_gen.test_prompt_template(
@@ -198,11 +211,15 @@ If this error persists:
                                 test_values
                             )
                         
+                        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] TEST SUCCESS")
+                        
                         # Store test result in session state to persist it
                         st.session_state.test_result = test_result
                         st.success("✅ Test completed!")
                         
                     except Exception as e:
+                        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] TEST ERROR: {str(e)}")
+                        
                         st.error(f"❌ Error testing prompt: {str(e)}")
                         if "test_result" in st.session_state:
                             del st.session_state.test_result
