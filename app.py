@@ -145,6 +145,11 @@ def main():
         
         try:
             with st.spinner("Generating your custom prompt template..."):
+                # Add debug info in development
+                if os.getenv('DEBUG', 'false').lower() == 'true':
+                    st.info(f"Debug: Task = {task_description[:100]}...")
+                    st.info(f"Debug: Variables = {variables}")
+                
                 result = prompt_gen.generate_prompt_template(task_description, variables)
             
             generation_time = time.time() - start_time
@@ -189,7 +194,25 @@ def main():
             )
             
         except Exception as e:
+            generation_time = time.time() - start_time
             st.error(f"❌ Error generating prompt template: {str(e)}")
+            
+            # Show additional debug info if available
+            with st.expander("🔍 Debug Information", expanded=False):
+                st.code(f"""
+Error Details:
+- Error Type: {type(e).__name__}
+- Error Message: {str(e)}
+- Task: {task_description}
+- Variables: {variables}
+- Generation Time: {generation_time:.2f}s
+
+If this error persists:
+1. Check your LLM Farm connection
+2. Try a simpler task description
+3. Check the application logs
+""", language="text")
+            
             logger.error(f"Generation error: {str(e)}")
     
     # Testing section

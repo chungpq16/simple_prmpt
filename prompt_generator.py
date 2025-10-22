@@ -521,12 +521,35 @@ Note: If you want the AI to output its entire response or parts of its response 
     
     def extract_prompt(self, metaprompt_response: str) -> str:
         """Extract the final prompt template from metaprompt response."""
-        between_tags = self.extract_between_tags("Instructions", metaprompt_response)[0]
-        return between_tags[:1000] + self.strip_last_sentence(
-            self.remove_empty_tags(
-                self.remove_empty_tags(between_tags[1000:]).strip()
-            ).strip()
-        )
+        instructions_list = self.extract_between_tags("Instructions", metaprompt_response)
+        
+        if not instructions_list:
+            # If no Instructions tags found, try to extract from the response directly
+            logger.warning("No <Instructions> tags found in response, attempting to extract prompt manually")
+            # Look for content after "Instructions>" or return the raw response
+            if "<Instructions>" in metaprompt_response:
+                start_idx = metaprompt_response.find("<Instructions>") + len("<Instructions>")
+                end_idx = metaprompt_response.find("</Instructions>")
+                if end_idx == -1:
+                    between_tags = metaprompt_response[start_idx:].strip()
+                else:
+                    between_tags = metaprompt_response[start_idx:end_idx].strip()
+            else:
+                # Last resort: return the response as-is
+                between_tags = metaprompt_response.strip()
+        else:
+            between_tags = instructions_list[0]
+        
+        if len(between_tags) <= 1000:
+            return self.strip_last_sentence(
+                self.remove_empty_tags(between_tags.strip())
+            )
+        else:
+            return between_tags[:1000] + self.strip_last_sentence(
+                self.remove_empty_tags(
+                    self.remove_empty_tags(between_tags[1000:]).strip()
+                ).strip()
+            )
     
     def extract_variables(self, prompt: str) -> Set[str]:
         """Extract variables from a prompt template."""
@@ -586,25 +609,37 @@ Note: If you want the AI to output its entire response or parts of its response 
                 for variable in variables:
                     variable_string += "\n{$" + variable.upper() + "}"
                 assistant_partial += variable_string + "\n</Inputs>\n<Instructions Structure>"
+            else:
+                assistant_partial = ""  # Let the AI decide variables
             
             # Generate the prompt template using LLM
             system_prompt = "You are an expert prompt engineer. Generate clear, effective prompt templates."
             response = self.llm_client.completion(prompt, system_prompt)
             
+            if not response or not response.strip():
+                raise Exception("Empty response from LLM")
+            
+            logger.debug(f"LLM response length: {len(response)}")
+            
             # Extract the actual prompt template
-            if assistant_partial:
-                full_response = assistant_partial + response
+            if assistant_partial and assistant_partial.strip():
+                full_response = assistant_partial + "\n" + response
             else:
                 full_response = response
                 
+            logger.debug(f"Full response for extraction: {full_response[:200]}...")
+            
             extracted_prompt = self.extract_prompt(full_response)
+            
+            if not extracted_prompt or not extracted_prompt.strip():
+                raise Exception("Failed to extract valid prompt from response")
+            
             extracted_variables = self.extract_variables(full_response)
             
             # Check for floating variables and fix if needed
             floating_vars = self.find_free_floating_variables(extracted_prompt)
             if floating_vars:
                 logger.warning(f"Found floating variables: {floating_vars}")
-                # Could implement fixing logic here if needed
             
             result = {
                 "prompt_template": extracted_prompt,
@@ -618,6 +653,9 @@ Note: If you want the AI to output its entire response or parts of its response 
             
         except Exception as e:
             logger.error(f"Error generating prompt template: {str(e)}")
+            logger.error(f"Task was: {task}")
+            if 'response' in locals():
+                logger.error(f"LLM response was: {response[:500]}...")
             raise Exception(f"Failed to generate prompt template: {str(e)}")
     
     def test_prompt_template(self, prompt_template: str, variable_values: Dict[str, str]) -> str:
