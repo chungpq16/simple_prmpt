@@ -34,29 +34,23 @@ def initialize_app():
         return None, None
 
 
-def display_sidebar():
-    """Display the sidebar with app information and configuration."""
-    with st.sidebar:
-        st.title("🤖 GenAI Prompt Generator")
-        st.markdown("---")
-        
-        st.subheader("About")
-        st.info(
-            "This application generates custom prompts based on your task description. "
-            "Simply describe what you want to accomplish, and get a professional prompt template!"
-        )
-        
-        st.subheader("Example Tasks")
+def display_info_section():
+    """Display information section inline."""
+    with st.expander("ℹ️ About & Examples", expanded=False):
         st.markdown("""
+        **About this app:**
+        This application generates custom prompts based on your task description. 
+        Simply describe what you want to accomplish, and get a professional prompt template!
+        
+        **Example Tasks:**
         - Draft an email responding to a customer complaint
-        - Choose an item from a menu based on preferences
+        - Choose an item from a menu based on preferences  
         - Rate a resume according to a rubric
         - Explain a complex concept in simple terms
         - Design a marketing strategy for a new product
-        """)
         
-        st.markdown("---")
-        st.caption("Powered by Corporate LLM Farm")
+        *Powered by Corporate LLM Farm*
+        """)
 
 
 def main():
@@ -68,12 +62,12 @@ def main():
     if not llm_client or not prompt_gen:
         st.stop()
     
-    # Display sidebar
-    display_sidebar()
-    
     # Main interface
-    st.title("GenAI Prompt Generator")
+    st.title("🤖 GenAI Prompt Generator")
     st.markdown("Transform your task descriptions into professional prompt templates")
+    
+    # Display info section inline
+    display_info_section()
     
     # Health check
     if st.button("🔍 Check LLM Farm Connection", key="health_check"):
@@ -87,7 +81,7 @@ def main():
     st.markdown("---")
     
     # Task input section
-    st.subheader("1. Describe Your Task")
+    st.subheader("Describe Your Task")
     
     col1, col2 = st.columns([3, 1])
     
@@ -95,7 +89,7 @@ def main():
         task_description = st.text_area(
             "What task would you like to create a prompt for?",
             placeholder="Example: Draft an email responding to a customer complaint",
-            height=100,
+            height=120,
             help="Describe the task you want to create a prompt template for. Be specific about what you want the AI to accomplish."
         )
     
@@ -114,17 +108,6 @@ def main():
         del st.session_state.task_input
         st.rerun()
     
-    # Variables section (optional)
-    st.subheader("2. Specify Variables (Optional)")
-    
-    with st.expander("Advanced: Custom Variables"):
-        st.info("Leave empty to let the AI choose appropriate variables automatically.")
-        custom_variables = st.text_input(
-            "Variable names (comma-separated)",
-            placeholder="CUSTOMER_COMPLAINT, COMPANY_NAME",
-            help="Specify custom variable names if you have specific requirements. Use ALL_CAPS format."
-        )
-    
     # Generate button
     st.markdown("---")
     generate_button = st.button(
@@ -138,60 +121,22 @@ def main():
     if generate_button and task_description.strip():
         start_time = time.time()
         
-        # Parse custom variables
-        variables = None
-        if custom_variables.strip():
-            variables = [var.strip().upper() for var in custom_variables.split(",") if var.strip()]
-        
         try:
             with st.spinner("Generating your custom prompt template..."):
                 # Add debug info in development
                 if os.getenv('DEBUG', 'false').lower() == 'true':
                     st.info(f"Debug: Task = {task_description[:100]}...")
-                    st.info(f"Debug: Variables = {variables}")
                 
-                result = prompt_gen.generate_prompt_template(task_description, variables)
+                # Let LLM automatically determine variables
+                result = prompt_gen.generate_prompt_template(task_description, variables=None)
             
             generation_time = time.time() - start_time
             
             # Display results
             st.success(f"✅ Prompt template generated successfully! ({generation_time:.2f}s)")
             
-            # Store in session state for testing
+            # Store in session state for persistent display
             st.session_state.generated_result = result
-            
-            # Display the generated prompt
-            st.subheader("3. Generated Prompt Template")
-            
-            # Variables information
-            if result.get("variables"):
-                st.markdown("**Variables detected:**")
-                cols = st.columns(len(result["variables"]))
-                for i, var in enumerate(result["variables"]):
-                    with cols[i]:
-                        st.code(f"{{{var}}}", language="text")
-            
-            # The actual prompt template
-            st.markdown("**Prompt Template:**")
-            st.text_area(
-                "Generated Prompt",
-                value=result["prompt_template"],
-                height=400,
-                help="This is your generated prompt template. Copy and use it in your AI applications!"
-            )
-            
-            # Warning for floating variables
-            if result.get("floating_variables"):
-                st.warning(f"⚠️ Detected floating variables: {result['floating_variables']}")
-                st.info("These variables might need manual adjustment for optimal results.")
-            
-            # Download option
-            st.download_button(
-                label="📥 Download Prompt Template",
-                data=result["prompt_template"],
-                file_name=f"prompt_template_{int(time.time())}.txt",
-                mime="text/plain"
-            )
             
         except Exception as e:
             generation_time = time.time() - start_time
@@ -204,7 +149,6 @@ Error Details:
 - Error Type: {type(e).__name__}
 - Error Message: {str(e)}
 - Task: {task_description}
-- Variables: {variables}
 - Generation Time: {generation_time:.2f}s
 
 If this error persists:
@@ -215,12 +159,47 @@ If this error persists:
             
             logger.error(f"Generation error: {str(e)}")
     
-    # Testing section
+    # Display generated prompt template if available
     if "generated_result" in st.session_state:
-        st.markdown("---")
-        st.subheader("4. Test Your Prompt Template")
-        
         result = st.session_state.generated_result
+        
+        st.markdown("---")
+        st.subheader("Generated Prompt Template")
+        
+        # Variables information
+        if result.get("variables"):
+            st.markdown("**Variables detected:**")
+            cols = st.columns(min(len(result["variables"]), 4))
+            for i, var in enumerate(result["variables"]):
+                with cols[i % 4]:
+                    st.code(f"{{{var}}}", language="text")
+        
+        # The actual prompt template - always visible
+        st.markdown("**Prompt Template:**")
+        st.text_area(
+            "Generated Prompt",
+            value=result["prompt_template"],
+            height=400,
+            help="This is your generated prompt template. Copy and use it in your AI applications!",
+            key="persistent_prompt_display"
+        )
+        
+        # Warning for floating variables
+        if result.get("floating_variables"):
+            st.warning(f"⚠️ Detected floating variables: {result['floating_variables']}")
+            st.info("These variables might need manual adjustment for optimal results.")
+        
+        # Download option
+        st.download_button(
+            label="📥 Download Prompt Template",
+            data=result["prompt_template"],
+            file_name=f"prompt_template_{int(time.time())}.txt",
+            mime="text/plain"
+        )
+        
+        # Testing section
+        st.markdown("---")
+        st.subheader("Test Your Prompt Template")
         
         with st.expander("🧪 Test the Generated Prompt", expanded=False):
             st.info("Provide values for the variables to test how the prompt works.")
@@ -246,23 +225,21 @@ If this error persists:
                                 test_values
                             )
                         
+                        # Store test result in session state to persist it
+                        st.session_state.test_result = test_result
                         st.success("✅ Test completed!")
-                        st.markdown("**AI Response:**")
-                        st.markdown(test_result)
                         
                     except Exception as e:
                         st.error(f"❌ Error testing prompt: {str(e)}")
+                        if "test_result" in st.session_state:
+                            del st.session_state.test_result
                 else:
                     st.warning("⚠️ Please provide values for all variables before testing.")
-    
-    # Footer
-    st.markdown("---")
-    st.markdown(
-        "<div style='text-align: center; color: #666;'>"
-        "GenAI Prompt Generator v1.0 | Built with Streamlit & LLM Farm"
-        "</div>",
-        unsafe_allow_html=True
-    )
+            
+            # Display test result if available
+            if "test_result" in st.session_state:
+                st.markdown("**AI Response:**")
+                st.markdown(st.session_state.test_result)
 
 
 if __name__ == "__main__":
