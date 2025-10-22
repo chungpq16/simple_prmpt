@@ -69,44 +69,17 @@ def main():
     # Display info section inline
     display_info_section()
     
-    # Health check
-    if st.button("🔍 Check LLM Farm Connection", key="health_check"):
-        with st.spinner("Checking connection..."):
-            if llm_client.health_check():
-                st.success("✅ LLM Farm connection is healthy!")
-            else:
-                st.error("❌ LLM Farm connection failed")
-                st.stop()
-    
     st.markdown("---")
     
     # Task input section
     st.subheader("Describe Your Task")
     
-    col1, col2 = st.columns([3, 1])
-    
-    with col1:
-        task_description = st.text_area(
-            "What task would you like to create a prompt for?",
-            placeholder="Example: Draft an email responding to a customer complaint",
-            height=120,
-            help="Describe the task you want to create a prompt template for. Be specific about what you want the AI to accomplish."
-        )
-    
-    with col2:
-        st.markdown("### Quick Examples")
-        if st.button("Email Response", key="example1"):
-            st.session_state.task_input = "Draft an email responding to a customer complaint"
-        if st.button("Menu Selection", key="example2"):
-            st.session_state.task_input = "Choose an item from a menu based on user preferences"
-        if st.button("Resume Rating", key="example3"):
-            st.session_state.task_input = "Rate a resume according to a rubric"
-    
-    # Handle example selection
-    if "task_input" in st.session_state:
-        task_description = st.session_state.task_input
-        del st.session_state.task_input
-        st.rerun()
+    task_description = st.text_area(
+        "What task would you like to create a prompt for?",
+        placeholder="Example: Draft an email responding to a customer complaint",
+        height=120,
+        help="Describe the task you want to create a prompt template for. Be specific about what you want the AI to accomplish."
+    )
     
     # Generate button
     st.markdown("---")
